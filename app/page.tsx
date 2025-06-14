@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { Send } from 'lucide-react'
+import { Send, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 type Message = {
@@ -20,7 +20,7 @@ export default function LiveChat() {
   const [isSending, setIsSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Load messages and setup realtime
+  // Load messages
   useEffect(() => {
     const loadMessages = async () => {
       const { data } = await supabase
@@ -28,7 +28,6 @@ export default function LiveChat() {
         .select('*')
         .order('created_at', { ascending: true })
         .limit(100)
-      
       setMessages(data || [])
     }
 
@@ -44,7 +43,18 @@ export default function LiveChat() {
           table: 'messages'
         },
         (payload) => {
-          setMessages(prev => [...prev, payload.new as Message])
+          setMessages((prev) => [...prev, payload.new as Message])
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          setMessages((prev) => prev.filter((msg) => msg.id !== payload.old.id))
         }
       )
       .subscribe()
@@ -52,9 +62,8 @@ export default function LiveChat() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [supabase])
+  }, [])
 
-  // Auto-scroll to newest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -65,12 +74,10 @@ export default function LiveChat() {
 
     setIsSending(true)
     try {
-      await supabase
-        .from('messages')
-        .insert({
-          content: newMessage,
-          username: username.trim() || 'Anonymous'
-        })
+      await supabase.from('messages').insert({
+        content: newMessage,
+        username: username.trim() || 'Anonymous'
+      })
       setNewMessage('')
     } catch (error) {
       console.error('Error sending message:', error)
@@ -79,34 +86,51 @@ export default function LiveChat() {
     }
   }
 
+  const deleteMessage = async (id: string) => {
+    try {
+      await supabase.from('messages').delete().eq('id', id)
+    } catch (error) {
+      console.error('Failed to delete message:', error)
+    }
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-pink-100">
       {/* Header */}
-      <header className="bg-white p-4 border-b shadow-sm">
-        <h1 className="text-xl font-bold text-center">Live Public Chat</h1>
+      <header className="bg-gradient-to-r from-blue-500 to-pink-500 p-4 shadow-md text-white text-center font-bold text-xl">
+        🚀 Live Public Chat
       </header>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Chat Box */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            No messages yet. Send the first message!
+          <div className="text-center text-gray-500 py-16">
+            No messages yet. Be the first to chat!
           </div>
         ) : (
           messages.map((message) => (
-            <div 
-              key={message.id} 
-              className="bg-white p-3 rounded-lg shadow-sm border"
+            <div
+              key={message.id}
+              className="relative bg-white border border-blue-100 rounded-xl shadow p-3 hover:shadow-md group transition"
             >
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="font-medium text-blue-600">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-semibold text-blue-600">
                   {message.username}
                 </span>
-                <span className="text-xs text-gray-500">
-                  {format(new Date(message.created_at), 'h:mm a')}
+                <span className="text-xs text-gray-400">
+                  {format(new Date(message.created_at), 'hh:mm a')}
                 </span>
               </div>
-              <p className="text-gray-800">{message.content}</p>
+              <p className="text-gray-700">{message.content}</p>
+
+              {/* Delete Icon on hover */}
+              <button
+                onClick={() => deleteMessage(message.id)}
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700"
+                title="Delete message"
+              >
+                <Trash2 size={16} />
+              </button>
             </div>
           ))
         )}
@@ -114,18 +138,17 @@ export default function LiveChat() {
       </div>
 
       {/* Message Input */}
-      <form 
+      <form
         onSubmit={sendMessage}
         className="bg-white p-4 border-t shadow-lg"
       >
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex gap-2 mb-2">
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Your name (optional)"
-            className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            maxLength={20}
+            className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-pink-300"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -134,14 +157,13 @@ export default function LiveChat() {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type your message..."
-            className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
             required
-            maxLength={500}
           />
           <button
             type="submit"
             disabled={isSending || !newMessage.trim()}
-            className="bg-blue-500 text-white rounded-full p-2 disabled:bg-blue-300 hover:bg-blue-600 transition-colors"
+            className="bg-gradient-to-r from-blue-500 to-pink-500 text-white rounded-full p-2 hover:scale-105 transition disabled:opacity-50"
           >
             {isSending ? (
               <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
