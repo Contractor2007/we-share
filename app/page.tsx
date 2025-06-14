@@ -95,14 +95,14 @@ export default function LiveChat() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-pink-100">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-blue-50 to-pink-100 overflow-hidden">
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-500 to-pink-500 p-4 shadow-md text-white text-center font-bold text-xl">
         🚀 Live Public Chat
       </header>
 
       {/* Chat Box */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 scrollbar-hide">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-16">
             No messages yet. Be the first to chat!
@@ -111,7 +111,7 @@ export default function LiveChat() {
           messages.map((message) => (
             <div
               key={message.id}
-              className="relative bg-white border border-blue-100 rounded-xl shadow p-3 hover:shadow-md group transition"
+              className="relative bg-white border border-blue-100 rounded-xl shadow p-3 pr-8 hover:shadow-md transition"
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="font-semibold text-blue-600">
@@ -121,12 +121,12 @@ export default function LiveChat() {
                   {format(new Date(message.created_at), 'hh:mm a')}
                 </span>
               </div>
-              <p className="text-gray-700">{message.content}</p>
+              <p className="text-gray-700 break-words">{message.content}</p>
 
-              {/* Delete Icon on hover */}
+              {/* Delete Icon - always visible */}
               <button
                 onClick={() => deleteMessage(message.id)}
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700"
+                className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition-colors"
                 title="Delete message"
               >
                 <Trash2 size={16} />
